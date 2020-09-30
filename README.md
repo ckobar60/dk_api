@@ -5,4 +5,4 @@ python -m venv env
 * Обновляем PIP
 python -m pip install --upgrade pip
 * Устанавливаем зависимости
-    pip install -r req.txt
+pip install -r req.txt

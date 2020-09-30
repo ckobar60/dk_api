@@ -45,7 +45,7 @@ def get_from_exel(codes ,token):
     i = 1
     while i != IndexError:
         try:
-            read_file = xlrd.open_workbook("C:/Users/root/Desktop/dk_api/goods_standard.xlsx")
+            read_file = xlrd.open_workbook("./goods/goods_standard.xlsx")
             sheet_num = read_file.sheet_by_index(0)
             barcode_value = int(sheet_num.row_values(i)[0])  
   
@@ -69,7 +69,7 @@ def get_from_exel(codes ,token):
     #if str("['4601373005881']") in codes:
 def get_from_price():
      
-    file = open("C:/Users/root/Desktop/dk_api/БЖ300004.txt", "r")
+    file = open("./БЖ300004.txt", "r")
     for line in file:  
         data = line.split('","')
         nom = str(data[1:2]).replace("['", '').replace("']", '')
@@ -108,10 +108,10 @@ if __name__ == "__main__":
     offset = 0
     count = 0 
     codes = {}
-    extract_zip(price_dir)
+    #extract_zip(price_dir)
     get_api_bc(offset, count, codes)
     get_from_exel(codes, token)
-    get_from_price()
+    #get_from_price()
     stop_time = time.time()
     res = (stop_time - start_time)
     print(res)
