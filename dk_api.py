@@ -41,11 +41,11 @@ def get_api_bc(offset, count, codes):
             break
     return codes
 
-def get_exel_bc(codes ,token):
+def get_from_exel(codes ,token):
     i = 1
     while i != IndexError:
         try:
-            read_file = xlrd.open_workbook("C:/Users/root/Desktop/ptn/goods_standard.xlsx")
+            read_file = xlrd.open_workbook("C:/Users/root/Desktop/dk_api/goods_standard.xlsx")
             sheet_num = read_file.sheet_by_index(0)
             barcode_value = int(sheet_num.row_values(i)[0])  
   
@@ -69,7 +69,7 @@ def get_exel_bc(codes ,token):
     #if str("['4601373005881']") in codes:
 def get_from_price():
      
-    file = open("C:/Users/root/Desktop/ptn/БЖ300004.txt", "r")
+    file = open("C:/Users/root/Desktop/dk_api/БЖ300004.txt", "r")
     for line in file:  
         data = line.split('","')
         nom = str(data[1:2]).replace("['", '').replace("']", '')
@@ -88,9 +88,9 @@ def get_from_price():
     file.close()
     return nom , name, group, sub_group, unit  
 
-def extract_zip(base_dir):
+def extract_zip(price_dir):
     now = time.strftime("%d%m%y", time.localtime())
-    with ZipFile(fr"{base_dir}\BjRpo_{now}_txt.zip", 'r') as zip:
+    with ZipFile(fr"{price_dir}\BjRpo_{now}_txt.zip", 'r') as zip:
         for name in zip.namelist():
             unicode_name = name.encode('cp437').decode('cp866')
             with zip.open(name) as f:
@@ -103,14 +103,14 @@ def extract_zip(base_dir):
 
 if __name__ == "__main__":
     start_time = time.time()
-    base_dir = fr"\\192.168.0.128\Price\Price_BjRpo"
+    price_dir = fr"\\192.168.0.128\Price\Price_BjRpo"
     token = "74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"
     offset = 0
     count = 0 
     codes = {}
-    extract_zip(base_dir)
+    extract_zip(price_dir)
     get_api_bc(offset, count, codes)
-    get_exel_bc(codes, token)
+    get_from_exel(codes, token)
     get_from_price()
     stop_time = time.time()
     res = (stop_time - start_time)
