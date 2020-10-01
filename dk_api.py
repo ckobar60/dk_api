@@ -6,30 +6,42 @@ import time
 
 from zipfile import ZipFile
 
-def get_api_bc(offset, count, codes):
-    
+def get_api_departments(offset, departments):
     while True:
         try:
-            response = requests.get(
-    "https://kabinet.dreamkas.ru/api/products",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
-                "isClosed": "true",
-            },
-            params={"limit": 1000,"offset": offset},
-        )
+            response = requests.get("https://kabinet.dreamkas.ru/api/v2/departments",
+                                    headers={"Content-Type": "application/json",
+                                            "Authorization": f"Bearer {token}",
+                                            "isClosed": "true",},
+                                    params={"limit": 1000,"offset": offset},)
             get_file = json.loads(response.text)
             json.dumps(get_file)
             for iter in range(1000):
-                count += 1
-                #with open("data_file.json", "w", encoding="utf-8") as write_file:
-                    #json.dump(response.json(), write_file, indent=2, ensure_ascii=False)
-                #print(count, [get_file[iter]['id']], get_file[iter]['name'], get_file[iter]['barcodes'])
+                departments[str(get_file[iter]['name'])] =  str([get_file[iter]['id']]).strip("[").strip("]").strip("'")
+            offset += 1000
+        
+        except PermissionError:
+            break
+  
+        except IndexError:
+            break
+    return departments
+
+
+
+def get_api_barcodes(offset, codes):
+    while True:
+        try:
+            response = requests.get("https://kabinet.dreamkas.ru/api/products",
+                                    headers={"Content-Type": "application/json",
+                                            "Authorization": f"Bearer {token}",
+                                            "isClosed": "true",},
+                                    params={"limit": 1000,"offset": offset},)
+            get_file = json.loads(response.text)
+            json.dumps(get_file)
+            for iter in range(1000):
                 codes[str(get_file[iter]['barcodes'])] =  str([get_file[iter]['id']]).strip("[").strip("]").strip("'")
-                print(str([get_file[iter]['id']]).strip("[").strip("]").strip("'"))
-                #print(count, get_file[iter]['barcodes'], get_file[iter]['id'], get_file[iter]['tax'])
-                       
+                #print(str([get_file[iter]['id']]).strip("[").strip("]").strip("'"))                      
             offset += 1000
         
         except PermissionError:
@@ -76,26 +88,27 @@ def get_from_exel(codes ,token):
                 unit_e = "TOBACCO"
               
             group_e = sheet_num.row_values(i)[9]   
-            print(name_e, barcode_e, unit_e, tax_e , group_e )
+            #print(name_e, barcode_e, unit_e, tax_e , group_e )
   
             if str(f"['{barcode_e}']") in codes:
                 id = str(codes[str(f"['{barcode_e}']")]) # ['b1615355-efb3-431b-ba7a-084a3b27dc5c']
-                print(id, str(f"['{barcode_e}']"), "True")
+                #print(id, str(f"['{barcode_e}']"), "True")
                 response = requests.get(f"https://kabinet.dreamkas.ru/api/v2/products/{id}",
                                         headers={"Content-Type": "application/json",
-                                        "Authorization": f"Bearer {token}",
-                                        "isClosed": "true",}) 
-                print(response.text)
+                                                "Authorization": f"Bearer {token}",
+                                                "isClosed": "true",}) 
+                #print(response.text)
                 i += 1
             else:
-                print( str(f"['{barcode_e}']"), "False") 
+                #print( str(f"['{barcode_e}']"), "False") 
                 response = requests.post("https://kabinet.dreamkas.ru/api/v2/products",
                                         headers={"Content-Type": "application/json",
-                                        "Authorization": f"Bearer {token}",
-                                        "isClosed": "true",},
-                                        json= {"name": name_e, "barcodes": [barcode_e], "tax": tax_e, "type": unit_e} )
-                print(response.status_code)
-                print(response.json())
+                                                "Authorization": f"Bearer {token}",
+                                                "isClosed": "true",},
+                                        json= {"name": name_e, "barcodes": [barcode_e], 
+                                            "tax": tax_e, "type": unit_e, "price": 1000 })
+                #print(response.status_code)
+                #print(response.json())
                 i += 1
         except IndexError:
             break
@@ -119,7 +132,8 @@ def get_from_price():
         if nom == "[]":
             continue
         else:
-            print(nom , name, group, unit)
+            continue
+            #print(nom , name, group, unit)
  
     file.close()
     return nom , name, group, sub_group, unit  
@@ -141,12 +155,15 @@ if __name__ == "__main__":
     price_dir = r"\\192.168.0.128\Price\Price_BjRpo"
     token = "74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"
     offset = 0
-    count = 0 
     codes = {}
-    #extract_zip(price_dir)
-    get_api_bc(offset, count, codes)
+    departments = {} 
+    extract_zip(price_dir)
+    get_api_departments(offset, departments)
+    print(departments)
+    get_api_barcodes(offset, codes)
+    print(codes)
     get_from_exel(codes, token)
-    #get_from_price()
+    get_from_price()
     stop_time = time.time()
     res = (stop_time - start_time)
     print(res)
