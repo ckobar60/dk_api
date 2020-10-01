@@ -4,9 +4,7 @@ import json
 import xlrd
 import time
 
-
 from zipfile import ZipFile
-
 
 def get_api_bc(offset, count, codes):
     
@@ -45,13 +43,44 @@ def get_from_exel(codes ,token):
     i = 1
     while i != IndexError:
         try:
-            read_file = xlrd.open_workbook("./goods/goods_standard.xlsx")
+            read_file = xlrd.open_workbook("./goods/goods.xlsx")
             sheet_num = read_file.sheet_by_index(0)
-            barcode_value = int(sheet_num.row_values(i)[0])  
+            barcode_e = int(sheet_num.row_values(i)[0])  
+            tax_e = sheet_num.row_values(i)[10]
+            
+            if tax_e == "Без НДС":
+                tax_e = "NDS_NO_TAX"
+            elif tax_e == 0:
+                tax_e = "NDS_0"
+            elif tax_e == 10:
+                tax_e = "NDS_10"
+            elif tax_e == 20:
+                tax_e = "NDS_20"
+            
+            name_e = sheet_num.row_values(i)[2]
+            unit_e = sheet_num.row_values(i)[4]
+            
+            if unit_e == "Штучный":
+                unit_e = "COUNTABLE"
+            elif unit_e == "Мерный":
+                unit_e = "SCALABLE"  
+            elif unit_e == "Алкогольный":
+                unit_e = "ALCOHOL"
+            elif unit_e == "Одежда":
+                unit_e = "CLOTHES"
+            elif unit_e == "Обувь":
+                unit_e = "SHOES"
+            elif unit_e == "Услуга":
+                unit_e = "SERVICE"
+            elif unit_e == "Табачная продукция":
+                unit_e = "TOBACCO"
+              
+            group_e = sheet_num.row_values(i)[9]   
+            print(name_e, barcode_e, unit_e, tax_e , group_e )
   
-            if str(f"['{barcode_value}']") in codes:
-                id = str(codes[str(f"['{barcode_value}']")]) # ['b1615355-efb3-431b-ba7a-084a3b27dc5c']
-                print(id, str(f"['{barcode_value}']"), "True")
+            if str(f"['{barcode_e}']") in codes:
+                id = str(codes[str(f"['{barcode_e}']")]) # ['b1615355-efb3-431b-ba7a-084a3b27dc5c']
+                print(id, str(f"['{barcode_e}']"), "True")
                 response = requests.get(f"https://kabinet.dreamkas.ru/api/v2/products/{id}",
                                         headers={"Content-Type": "application/json",
                                         "Authorization": f"Bearer {token}",
@@ -59,17 +88,24 @@ def get_from_exel(codes ,token):
                 print(response.text)
                 i += 1
             else:
-                print( str(f"['{barcode_value}']"), "False") 
+                print( str(f"['{barcode_e}']"), "False") 
+                response = requests.post("https://kabinet.dreamkas.ru/api/v2/products",
+                                        headers={"Content-Type": "application/json",
+                                        "Authorization": f"Bearer {token}",
+                                        "isClosed": "true",},
+                                        json= {"name": name_e, "barcodes": [barcode_e], "tax": tax_e, "type": unit_e} )
+                print(response.status_code)
+                print(response.json())
                 i += 1
         except IndexError:
             break
     #['4630015370841']
-    #print(codes[str(f"[{barcode_value}]")], "true")
+    #print(codes[str(f"[{barcode_e}]")], "true")
     
     #if str("['4601373005881']") in codes:
 def get_from_price():
      
-    file = open("./БЖ300004.txt", "r")
+    file = open("./price/БЖ300004.txt", "r")
     for line in file:  
         data = line.split('","')
         nom = str(data[1:2]).replace("['", '').replace("']", '')
@@ -95,15 +131,14 @@ def extract_zip(price_dir):
             unicode_name = name.encode('cp437').decode('cp866')
             with zip.open(name) as f:
                 content = f.read()
-                fullpath =  os.path.join(os.getcwd() ,unicode_name)
-                with open(fullpath,'wb') as f:
+                with open(f".\price\{unicode_name}",'wb') as f:
                     f.write(content)
          
     
 
 if __name__ == "__main__":
     start_time = time.time()
-    price_dir = fr"\\192.168.0.128\Price\Price_BjRpo"
+    price_dir = r"\\192.168.0.128\Price\Price_BjRpo"
     token = "74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"
     offset = 0
     count = 0 
