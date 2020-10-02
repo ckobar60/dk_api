@@ -1,4 +1,6 @@
-import os
+""" Импортируем необходимые библиотеки"""
+
+import os 
 import requests
 import json 
 import xlrd
@@ -6,7 +8,31 @@ import time
 
 from zipfile import ZipFile
 
-def get_api_departments(offset, departments):
+""" get_devices_from_api() позволяет получить id кассы из API """
+
+def get_devices_from_api():
+    devices = []
+    response = requests.get(f"https://kabinet.dreamkas.ru/api/devices",
+                            headers={"Content-Type": "application/json",
+                                    "Authorization": f"Bearer {token}",
+                                    "isClosed": "true",}) 
+    get_device = json.loads(response.text)
+    with open("./devices/devices.json", "w", encoding="utf-8") as write_file: # Записываем результат get запроса в json файл с кодировкой utf-8
+        json.dump(get_device, write_file, indent=4, ensure_ascii=False) # ensure_ascii=False чтобы не было проблем с кириллицей
+    with open("./devices/devices.json", "r", encoding="utf-8") as read_file: # Чтение из json файла
+        data = json.load(read_file)
+        for iter in range(len(data)): # Итерируемся по каждой кассе
+            try:
+                devices.append({"deviceId": data[iter]["id"], "value": 0}) # Добавляем цены всем кассам (добавить "value": int)               
+            except IndexError:
+                break   
+    return  devices 
+      
+""" get_departments_from_api() позволяет получить словарь id отделов из API ( 'name': 'id')"""
+
+def get_departments_from_api():
+    offset = 0
+    departments = {} 
     while True:
         try:
             response = requests.get("https://kabinet.dreamkas.ru/api/v2/departments",
@@ -14,10 +40,13 @@ def get_api_departments(offset, departments):
                                             "Authorization": f"Bearer {token}",
                                             "isClosed": "true",},
                                     params={"limit": 1000,"offset": offset},)
-            get_file = json.loads(response.text)
-            json.dumps(get_file)
-            for iter in range(1000):
-                departments[str(get_file[iter]['name'])] =  str([get_file[iter]['id']]).strip("[").strip("]").strip("'")
+            get_departments = json.loads(response.text)
+            with open("./departments/departments.json", "w", encoding="utf-8") as write_file:  # Записываем результат get запроса в json файл с кодировкой utf-8
+                json.dump(get_departments, write_file, indent=4, ensure_ascii=False) # ensure_ascii=False чтобы не было проблем с кириллицей
+            with open("./departments/departments.json", "r", encoding="utf-8") as read_file: # Чтение из json файла
+                json.load(read_file)
+                for iter in range(1000): # Итерируемся по каждому отделу 
+                    departments[str(get_departments[iter]['name'])] =  str([get_departments[iter]['id']]).strip("[").strip("]").strip("'")
             offset += 1000
         
         except PermissionError:
@@ -38,12 +67,14 @@ def get_api_barcodes(offset, codes):
                                             "isClosed": "true",},
                                     params={"limit": 1000,"offset": offset},)
             get_file = json.loads(response.text)
-            json.dumps(get_file)
-            for iter in range(1000):
-                codes[str(get_file[iter]['barcodes'])] =  str([get_file[iter]['id']]).strip("[").strip("]").strip("'")
-                #print(str([get_file[iter]['id']]).strip("[").strip("]").strip("'"))                      
+            with open("./barcodes/barcodes.json", "a", encoding="utf-8") as write_file:
+                json.dump(get_file, write_file, indent = 4, ensure_ascii=False)
+                for iter in range(1000):
+                    codes[str(get_file[iter]['barcodes'])] =  str([get_file[iter]['id']]).strip("[").strip("]").strip("'")
+                #print(str([get_file[iter]['id']]).strip("[").strip("]").strip("'"))  
+                                  
             offset += 1000
-        
+
         except PermissionError:
             break
   
@@ -51,7 +82,7 @@ def get_api_barcodes(offset, codes):
             break
     return codes
 
-def get_from_exel(codes ,token):
+def get_from_exel(codes ,token, devices):
     i = 1
     while i != IndexError:
         try:
@@ -106,9 +137,10 @@ def get_from_exel(codes ,token):
                                                 "Authorization": f"Bearer {token}",
                                                 "isClosed": "true",},
                                         json= {"name": name_e, "barcodes": [barcode_e], 
-                                            "tax": tax_e, "type": unit_e, "price": 1000 })
-                #print(response.status_code)
-                #print(response.json())
+                                                "tax": tax_e, "type": unit_e,
+                                                "prices": devices})
+                print(response.status_code)
+                print(response.json())
                 i += 1
         except IndexError:
             break
@@ -155,15 +187,14 @@ if __name__ == "__main__":
     price_dir = r"\\192.168.0.128\Price\Price_BjRpo"
     token = "74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"
     offset = 0
-    codes = {}
-    departments = {} 
-    extract_zip(price_dir)
-    get_api_departments(offset, departments)
-    print(departments)
+    codes = {}                                   
+    #extract_zip(price_dir)
+    #get_departments_from_api()
+    #get_devices_from_api()
+    #get_devices_from_api()
     get_api_barcodes(offset, codes)
-    print(codes)
-    get_from_exel(codes, token)
-    get_from_price()
+    get_from_exel(codes, token, get_devices_from_api())
+    #get_from_price()
     stop_time = time.time()
     res = (stop_time - start_time)
     print(res)
