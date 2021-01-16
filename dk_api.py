@@ -26,6 +26,7 @@ def get_devices_from_api():
                 devices.append({"deviceId": data[iter]["id"], "value": 0}) # Добавляем цены всем кассам (добавить "value": int)               
             except IndexError:
                 break   
+    print(devices)
     return  devices 
       
 """ get_departments_from_api() позволяет получить словарь id отделов из API ( 'name': 'id')"""
@@ -74,7 +75,6 @@ def get_api_barcodes(offset, codes):
                 #print(str([get_file[iter]['id']]).strip("[").strip("]").strip("'"))  
                                   
             offset += 1000
-
         except PermissionError:
             break
   
@@ -86,11 +86,15 @@ def get_from_exel(codes ,token, devices):
     i = 1
     while i != IndexError:
         try:
-            read_file = xlrd.open_workbook("./goods/goods.xlsx")
+            read_file = xlrd.open_workbook("./goods/si.xlsx")
             sheet_num = read_file.sheet_by_index(0)
             barcode_e = int(sheet_num.row_values(i)[0])  
+            name_e = sheet_num.row_values(i)[2]
+            price = sheet_num.row_values(i)[3]
+            unit_e = sheet_num.row_values(i)[4]
+            quantity_e = sheet_num.row_values(i)[8]
             tax_e = sheet_num.row_values(i)[10]
-            
+            print(type(quantity_e))
             if tax_e == "Без НДС":
                 tax_e = "NDS_NO_TAX"
             elif tax_e == 0:
@@ -100,13 +104,41 @@ def get_from_exel(codes ,token, devices):
             elif tax_e == 20:
                 tax_e = "NDS_20"
             
-            name_e = sheet_num.row_values(i)[2]
-            unit_e = sheet_num.row_values(i)[4]
             
-            if unit_e == "Штучный":
+            if unit_e.capitalize() == "Штучный" and "Сиг-ты"  not in name_e: #Защита от Ромашова
+                print(unit_e.capitalize())
                 unit_e = "COUNTABLE"
-            elif unit_e == "Мерный":
-                unit_e = "SCALABLE"  
+                if quantity_e == 1.0:
+                    quantity_e = 1000
+                    unit = "796"
+                    json_add = {"name": name_e,"barcodes": [barcode_e], "tax": tax_e, "type": unit_e, "quantity": quantity_e, "unit": unit, "prices": devices,}
+            
+            elif unit_e.capitalize() == "Штучный" and "Сиг-ты" in name_e: #Защита от Ромашова
+                unit_e = "TOBACCO"
+                if quantity_e == 1.0:
+                    quantity_e = 1000
+                    unit = "796"
+                    json_add = {"name": name_e,"barcodes": [barcode_e], "tax": tax_e, "isMarked": "true", "type": unit_e, "quantity": quantity_e, "unit": unit, "prices": devices,}
+
+
+            elif unit_e.capitalize() == "Весовой": #Защита от Ромашова
+                unit_e = "SCALABLE" 
+                if quantity_e == 0.001:
+                    quantity_e = 1
+                    unit = "166"
+                    json_add = {"name": name_e,"vendorCodes": [barcode_e], "tax": tax_e, "type": unit_e, "quantity": quantity_e, "unit": unit, "prices": devices,}
+            elif unit_e.capitalize() == "Табак":
+                unit_e = "TOBACCO"
+                if quantity_e == 1.0:
+                    quantity_e = 1000
+                    unit = "796"
+                    json_add = {"name": name_e,"barcodes": [barcode_e], "tax": tax_e, "isMarked": "true", "type": unit_e, "quantity": quantity_e, "unit": unit, "prices": devices,}
+                    if "2" in str(barcode_e)[0]:
+                        i+=1
+                    
+ 
+              
+
             elif unit_e == "Алкогольный":
                 unit_e = "ALCOHOL"
             elif unit_e == "Одежда":
@@ -115,12 +147,13 @@ def get_from_exel(codes ,token, devices):
                 unit_e = "SHOES"
             elif unit_e == "Услуга":
                 unit_e = "SERVICE"
-            elif unit_e == "Табачная продукция":
-                unit_e = "TOBACCO"
-              
+
+            
             group_e = sheet_num.row_values(i)[9]   
             #print(name_e, barcode_e, unit_e, tax_e , group_e )
-  
+                       
+            """Ищем штрихкод в кабинете Дримкас"""
+                       
             if str(f"['{barcode_e}']") in codes:
                 id = str(codes[str(f"['{barcode_e}']")]) # ['b1615355-efb3-431b-ba7a-084a3b27dc5c']
                 #print(id, str(f"['{barcode_e}']"), "True")
@@ -128,17 +161,33 @@ def get_from_exel(codes ,token, devices):
                                         headers={"Content-Type": "application/json",
                                                 "Authorization": f"Bearer {token}",
                                                 "isClosed": "true",}) 
-                #print(response.text)
-                i += 1
-            else:
-                #print( str(f"['{barcode_e}']"), "False") 
-                response = requests.post("https://kabinet.dreamkas.ru/api/v2/products",
+                get_file = json.loads(response.text)
+                print(get_file)
+
+
+                if tax_e == get_file['tax']:
+                    print(tax_e, get_file['tax'], "true")
+                
+                elif  tax_e != get_file['tax']:
+                    response = requests.patch(f"https://kabinet.dreamkas.ru/api/v2/products/{id}",
                                         headers={"Content-Type": "application/json",
                                                 "Authorization": f"Bearer {token}",
                                                 "isClosed": "true",},
-                                        json= {"name": name_e, "barcodes": [barcode_e], 
-                                                "tax": tax_e, "type": unit_e,
-                                                "prices": devices})
+                                        json= json_add)
+                    print(tax_e, get_file['tax'], "false")
+            
+
+                    
+                #print(response.text)
+                i += 1
+            elif str(f"['{barcode_e}']") not in codes:
+                #print( str(f"['{barcode_e}']"), "False") 
+                response = requests.post(f"https://kabinet.dreamkas.ru/api/v2/products/",
+                                        headers={"Content-Type": "application/json",
+                                                "Authorization": f"Bearer {token}",
+                                                "isClosed": "true",},
+                                        json= json_add)
+
                 print(response.status_code)
                 print(response.json())
                 i += 1
@@ -185,19 +234,21 @@ def extract_zip(price_dir):
 if __name__ == "__main__":
     start_time = time.time()
     price_dir = r"\\192.168.0.128\Price\Price_BjRpo"
-    token = "74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"
+    """74a3dd44-b0dd-4f66-8a6e-48b73fee2d8e"""
+    token = "de43a3c5-4505-4c57-bdc4-3d34d503a2b1"
     offset = 0
     codes = {}                                   
     #extract_zip(price_dir)
     #get_departments_from_api()
-    #get_devices_from_api()
-    #get_devices_from_api()
+    get_devices_from_api()
     get_api_barcodes(offset, codes)
     get_from_exel(codes, token, get_devices_from_api())
     #get_from_price()
     stop_time = time.time()
     res = (stop_time - start_time)
     print(res)
+    os.remove("./barcodes/barcodes.json")
+    
     
 
     
